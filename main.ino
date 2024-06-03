@@ -1,7 +1,7 @@
-
-
-
 #include <Adafruit_Fingerprint.h>
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+
 
 #if (defined(__AVR__) || defined(ESP8266)) && !defined(__AVR_ATmega2560__)
   // For UNO and others without hardware serial, we must use software serial...
@@ -25,8 +25,102 @@ int readNumber();
 int getFingerprintEnroll();
 int getFingerprintID();
 
+bool estado;
+
+//Credentials
+  const char* ssid = "ESP32-AP"; // SSID for the ESP32 access point
+  const char* password = "password123"; // Password for the access point
+
+  const char* validUsername = "admin";
+  const char* validPassword = "password123";
+
+
+AsyncWebServer server(80);
+
+const char* html = R"rawliteral(
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <title>Login Page</title>
+  </head>
+  <body>
+      <h2>Login Page</h2>
+      <form action="/login" method="post">
+          <div class="container">
+              <label for="uname"><b>Username</b></label>
+              <input type="text" placeholder="Enter Username" name="uname" required>
+              <br>
+              <label for="psw"><b>Password</b></label>
+              <input type="password" placeholder="Enter Password" name="psw" required>
+              <br>
+              <button type="submit">Login</button>
+          </div>
+      </form>
+  </body>
+  </html>
+  )rawliteral";
+
+const char* successPage = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Successful</title>
+    <script>
+        function changeEstado() {
+            fetch('/changeEstado')
+                .then(response => response.text())
+                .then(data => alert(data));
+        }
+    </script>
+</head>
+<body>
+    <h2>Login Successful</h2>
+    <p>Welcome! You have successfully logged in.</p>
+    <button onclick="changeEstado()">Change Estado</button>
+</body>
+</html>
+)rawliteral";
+
 void setup() {
-  Serial.begin(9660);
+  Serial.begin(115200);
+  WiFi.softAP(ssid, password);
+  IPAddress apIP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(apIP);
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", html);
+  });
+
+  server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request){
+    String username = "";
+    String password = "";
+
+    if (request->hasParam("uname", true)) {
+      username = request->getParam("uname", true)->value();
+    }
+    if (request->hasParam("psw", true)) {
+      password = request->getParam("psw", true)->value();
+    }
+
+    if (username.equals(validUsername) && password.equals(validPassword)) {
+      request->send_P(200, "text/html", successPage);
+      Serial.println("Login successful!");
+    } else {
+      request->send(401, "text/plain", "Invalid username or password.");
+      Serial.println("Invalid username or password.");
+    }
+  });
+  
+  server.on("/changeEstado", HTTP_GET, [](AsyncWebServerRequest *request){
+    estado = !estado; // Toggle the value of estado
+    String message = "Estado changed to: " + String(estado);
+    request->send(200, "text/plain", message);
+    Serial.println(message);
+  });
+  // Start server
+  server.begin();
+
   finger.begin(57600);
 
   if (finger.verifyPassword()) {
@@ -37,12 +131,14 @@ void setup() {
     while (1) { delay(1); }
   }
 }
+int id;
+
 
 void loop() {
-  if(digitalRead(SWITCH) == 1){ // ENROLL
+  if(estado){ // ENROLL
     Serial.println("Ready to enroll a fingerprint!");
     Serial.println("Please type in the ID # (from 1 to 127) you want to save this finger as...");
-    id = readnumber();
+    id = readNumber();
     if (id == 0) {// ID #0 not allowed, try again!
       return;
     }
