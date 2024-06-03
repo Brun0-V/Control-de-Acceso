@@ -132,28 +132,48 @@ void setup() {
   }
 }
 int id;
+enum State {
+  WAITING_FOR_INPUT,
+  ENROLLING,
+  COMPARING
+};
 
+State currentState = WAITING_FOR_INPUT;
 
 void loop() {
-  if(estado){ // ENROLL
-    Serial.println("Ready to enroll a fingerprint!");
-    Serial.println("Please type in the ID # (from 1 to 127) you want to save this finger as...");
-    id = readNumber();
-    if (id == 0) {// ID #0 not allowed, try again!
-      return;
+  if (estado) {
+    switch (currentState) {
+      case WAITING_FOR_INPUT:
+        Serial.println("Ready to enroll a fingerprint!");
+        Serial.println("Please type in the ID # (from 1 to 127) you want to save this finger as...");
+        currentState = ENROLLING;
+      break;
+
+      case ENROLLING:
+        if (Serial.available() > 0) {
+          id = Serial.parseInt();
+          if (id > 0 && id <= 127) { // Valid ID
+            Serial.print("Enrolling ID #");
+            Serial.println(id);
+            if (getFingerprintEnroll()) {
+              Serial.println("Fingerprint enrolled successfully!");
+              currentState = WAITING_FOR_INPUT;
+              estado = false; // Reset estado after enrollment
+            }
+          } 
+          else {
+            Serial.println("Invalid ID, please try again.");
+            currentState = WAITING_FOR_INPUT;
+          }
+        }
+      break;
     }
-    Serial.print("Enrolling ID #");
-    Serial.println(id);
-
-    while (! getFingerprintEnroll() );
   }
-
   else{   //COMPARE
     if(getFingerprintID() != -1){
-      //  rtc.timenow
-      //  relay.abrir
-      //  csv.actualizar
-    } 
+      Serial.println("yipeeeeeeee");
+    }
+    else{ Serial.println("not YIPEEEEEEEE"); } 
     delay(50);  
   }
 }
