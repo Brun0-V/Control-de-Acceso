@@ -1,4 +1,6 @@
-
+/*
+Este es un codigo de prueba del OLED, se configura y se imprime por pantalla lo que se ingrese por el Serial Monitor
+*/
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
