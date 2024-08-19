@@ -1,60 +1,46 @@
 #include <WiFi.h>
-#include <WiFiUdp.h>
-#include <NTPClient.h>
-#include <ESP32Time.h>
+#include "time.h"
 
-// Wi-Fi credentials
-const char *ssid = "BA Escuela";
-const char *password = "";
+const char* ssid = "BA Escuela";          // Reemplaza con el nombre de tu red WiFi
+const char* password = "";  // Reemplaza con la contraseña de tu red WiFi
 
-// NTP server details
-const char *ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = -10800; // Adjust to your timezone
-const int daylightOffset_sec = 3600; // Adjust for daylight savings if applicable
-
-// NTP client setup
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, ntpServer, gmtOffset_sec, 60000); // Update every minute
-
-// Initialize ESP32Time
-ESP32Time rtc;
+const char* ntpServer = "ar.pool.ntp.org"; // Servidor NTP para obtener la hora
+const long gmtOffset_sec = -10800;           // Offset GMT (ajusta según tu zona horaria)
+const int daylightOffset_sec = 0;    // Ajuste para horario de verano (si aplica)
 
 void setup() {
-  // Initialize Serial Monitor
   Serial.begin(115200);
-  
-  // Connect to Wi-Fi
+
+  // Conectar al WiFi en modo STA (Station)
   WiFi.begin(ssid, password);
+  Serial.print("Conectando a WiFi");
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
-  Serial.println("Connected to WiFi");
-
-  // Initialize NTP client
-  timeClient.begin();
-  while(!timeClient.update()) {
-    timeClient.forceUpdate();
+    Serial.print(".");
   }
 
-  // Get current epoch time from NTP
-  time_t now = timeClient.getEpochTime();
+  Serial.println("\nConectado a la red WiFi");
 
-  // Set time on the RTC
-  rtc.setTime(now);
+  // Iniciar la conexión con el servidor NTP para obtener la hora
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-  // Print the current time
-  printLocalTime();
+  // Esperar la sincronización de tiempo
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Fallo al obtener la hora");
+    return;
+  }
+
+  // Imprimir la hora obtenida
+  Serial.println(&timeinfo, "Hora obtenida: %A, %B %d %Y %H:%M:%S");
 }
 
 void loop() {
-  // Example to print the time every 10 seconds
-  delay(10000);
-  printLocalTime();
-}
-
-void printLocalTime() {
-  Serial.printf("%04d-%02d-%02d %02d:%02d:%02d\n", 
-                rtc.getYear(), rtc.getMonth(), rtc.getDay(), 
-                rtc.getHour(), rtc.getMinute(), rtc.getSecond());
+  // Obtener la hora actual en cada ciclo del loop
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    Serial.println(&timeinfo, "Hora actual: %A, %B %d %Y %H:%M:%S");
+  }
+  delay(10000); // Espera de 10 segundos antes de la siguiente impresión de hora
 }
